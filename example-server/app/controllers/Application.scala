@@ -82,4 +82,7 @@ object Application extends Controller {
     script(src := s"/assets/${projectName.toLowerCase}-launcher.js", `type` := "text/javascript")
   }
 
+  def monthCreate() = Action { implicit request =>
+    Created("5").withHeaders(CONTENT_TYPE -> MimeTypes.JSON)
+  }
 }

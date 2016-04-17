@@ -1,4 +1,5 @@
 import rx.lang.scala.Observable
+import shared.WorkerId
 
 import scala.collection.immutable.IndexedSeq
 import scala.collection.mutable
@@ -250,5 +251,3 @@ class Rota(nDays: Int, team: Set[WorkerId]) {
     get
   }
 }
-
-case class WorkerId(id: Int)
