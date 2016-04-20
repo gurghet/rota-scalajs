@@ -207,7 +207,8 @@ object ExampleJS extends js.JSApp {
             )
             Ajax.put(
               url = "/month/2016/05",
-              data = write(data)
+              data = write(data),
+              headers = Map("content-type" -> "application/json")
             ).map{r => if (r.status == 200) {
               vm.$set("mode", "confirm")
             } else {

@@ -1,8 +1,10 @@
 package controllers
 
 import play.api.http.MimeTypes
+import play.api.libs.json.JsValue
 import play.api.mvc._
 import shared.SharedMessages
+
 import scalatags.Text.TypedTag
 import scalatags.Text.all._
 
@@ -84,5 +86,16 @@ object Application extends Controller {
 
   def monthCreate() = Action { implicit request =>
     Created("5").withHeaders(CONTENT_TYPE -> MimeTypes.JSON)
+  }
+
+  def monthUpdate(year: Int, month: Int) = Action { implicit request =>
+    val body: AnyContent = request.body
+    val jsonBody: Option[JsValue] = body.asJson
+
+    jsonBody.map { json =>
+      Ok("Got: " + (json \\ "ofTheMonth").toString())
+    }.getOrElse{
+      BadRequest("Expecting application/json request body")
+    }
   }
 }
