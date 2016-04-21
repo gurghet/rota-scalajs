@@ -93,7 +93,8 @@ object Application extends Controller {
     val jsonBody: Option[JsValue] = body.asJson
 
     jsonBody.map { json =>
-      Ok("Got: " + (json \\ "ofTheMonth").toString())
+
+      Ok()
     }.getOrElse{
       BadRequest("Expecting application/json request body")
     }

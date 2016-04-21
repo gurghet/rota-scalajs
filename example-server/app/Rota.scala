@@ -1,16 +1,29 @@
+import play.api.libs.json.{JsArray, Json}
 import rx.lang.scala.Observable
 import shared.WorkerId
 
 import scala.collection.immutable.IndexedSeq
 import scala.collection.mutable
+import scala.concurrent.Future
+import scala.language.postfixOps
 
 /**
   * Created by gurghet on 05.04.16.
   */
+object Rota {
+  def apply(jsonString: String): Rota = {
+    val json = Json.parse(jsonString)
+    val nShifts = json.head \ "shifts" \\ "order" length
+    val nDays = json \\ "ofTheMonth" length
+    val properties = json \\ "properties"
+    // find a way to map worker preferences
+  }
+}
+
 class Rota(nDays: Int, team: Set[WorkerId]) {
   private val shiftsPerDay = 3
   private val maxGlobalTeamSize = 5
-  private val r = scala.util.Random
+  private lazy val r = scala.util.Random
   type MutableRota = mutable.LinkedHashMap[(Int, Int), mutable.Set[WorkerId]]
   type Rota = Map[(Int, Int), Set[WorkerId]]
   type ImmutableRota = collection.immutable.Map[(Int, Int), collection.immutable.Set[WorkerId]]
@@ -250,4 +263,26 @@ class Rota(nDays: Int, team: Set[WorkerId]) {
     }
     get
   }
+}
+
+trait RotaStore {
+  def get(id: Long): Future[Rota]
+  def create(rotaWithoutId: Rota): Future[Rota]
+  def update(rota: Rota): Future[Boolean]
+  def delete(id: Long*): Future[Boolean]
+}
+
+object RotaAnormStore extends RotaStore {
+  import anorm._
+  import anorm.SqlParser._
+  import play.api.db.DB
+
+  override def get(id: Long): Future[Rota] = Future {
+    DB.withConnection { implicit c =>
+      SQL("SELECT * FROM Rotas ORDER BY id DESC").as(long("id").? ~ str("json") *).map {
+        case dbId ~ json => Rota(json)
+      }
+    }
+  }
+
 }
