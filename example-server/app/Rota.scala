@@ -1,6 +1,6 @@
 import play.api.libs.json.{JsArray, Json}
 import rx.lang.scala.Observable
-import shared.WorkerId
+import shared.{Day, Shift}
 
 import scala.collection.immutable.IndexedSeq
 import scala.collection.mutable
@@ -12,7 +12,7 @@ import scala.language.postfixOps
   */
 case class DaysWithPreferences(days: Map[(Int, Int), (Set[WorkerId], Map[WorkerId, Int], Set[String])])
 
-class Rota(nDays: Int, team: Set[WorkerId]) {
+class Rota(nDays: Int, team: Set[String]) {
   private val shiftsPerDay = 3
   private val maxGlobalTeamSize = 5
   private lazy val r = scala.util.Random
