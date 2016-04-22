@@ -1,6 +1,6 @@
 import play.api.libs.json.{JsArray, Json}
 import rx.lang.scala.Observable
-import shared.WorkerId
+import shared.{Day, Shift}
 
 import scala.collection.immutable.IndexedSeq
 import scala.collection.mutable
@@ -10,17 +10,20 @@ import scala.language.postfixOps
 /**
   * Created by gurghet on 05.04.16.
   */
-object Rota {
-  def apply(jsonString: String): Rota = {
-    val json = Json.parse(jsonString)
-    val nShifts = json.head \ "shifts" \\ "order" length
-    val nDays = json \\ "ofTheMonth" length
-    val properties = json \\ "properties"
-    // find a way to map worker preferences
+case class RotaSparse(days: collection.mutable.Seq[Day])
+
+object RotaSparse {
+  def apply(jsonString: String): RotaSparse = {
+    import play.api.libs.json._
+    implicit val rotaSparseReads = Json.reads[RotaSparse]
+    implicit val dayReads = Json.reads[Day]
+    implicit val shiftReads = Json.reads[Shift]
+
+    val RotaSparseResult
   }
 }
 
-class Rota(nDays: Int, team: Set[WorkerId]) {
+class Rota(nDays: Int, team: Set[String]) {
   private val shiftsPerDay = 3
   private val maxGlobalTeamSize = 5
   private lazy val r = scala.util.Random

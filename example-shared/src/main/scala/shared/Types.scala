@@ -4,8 +4,10 @@ package shared
   * Created by gurghet on 17.04.16.
   */
 
-case class WorkerId(id: Int)
+import collection.mutable
+
 case class Shift(order: Int,
-                 team: Option[List[WorkerId]] = Option.empty,
-                 properties: Option[List[String]] = Option.empty)
-case class Day(ofTheMonth: Int, shifts: List[Shift])
+                 team: mutable.Seq[String],
+                 preferences: mutable.Map[String, Int],
+                 properties: mutable.Seq[String])
+case class Day(ofTheMonth: Int, shifts: mutable.Seq[Shift])
