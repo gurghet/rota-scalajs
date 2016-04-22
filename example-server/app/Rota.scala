@@ -10,15 +10,7 @@ import scala.language.postfixOps
 /**
   * Created by gurghet on 05.04.16.
   */
-object Rota {
-  def apply(jsonString: String): Rota = {
-    val json = Json.parse(jsonString)
-    val nShifts = json.head \ "shifts" \\ "order" length
-    val nDays = json \\ "ofTheMonth" length
-    val properties = json \\ "properties"
-    // find a way to map worker preferences
-  }
-}
+case class DaysWithPreferences(days: Map[(Int, Int), (Set[WorkerId], Map[WorkerId, Int], Set[String])])
 
 class Rota(nDays: Int, team: Set[WorkerId]) {
   private val shiftsPerDay = 3
@@ -277,10 +269,10 @@ object RotaAnormStore extends RotaStore {
   import anorm.SqlParser._
   import play.api.db.DB
 
-  override def get(id: Long): Future[Rota] = Future {
+  override def get(id: Long): Future[DaysWithPreferences] = Future {
     DB.withConnection { implicit c =>
-      SQL("SELECT * FROM Rotas ORDER BY id DESC").as(long("id").? ~ str("json") *).map {
-        case dbId ~ json => Rota(json)
+      SQL("SELECT * FROM DaysWithPreferences ORDER BY id DESC").as(long("id").? ~ str("obj") *).map {
+        case dbId ~ obj => DaysWithPreferences()
       }
     }
   }
