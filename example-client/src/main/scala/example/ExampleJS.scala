@@ -1,18 +1,20 @@
 package example
 
 import com.felstar.scalajs.vue.Vue
-import org.scalajs.dom.ext.{Ajax, AjaxException}
+import org.scalajs.dom.ext.Ajax
 import upickle.Js
-import upickle.Js.Value
+import scala.collection.mutable
 import scala.concurrent.ExecutionContext.Implicits.global
+import scala.language.implicitConversions
 
 import scala.scalajs.js
 import org.scalajs.dom
 import js.Dynamic.literal
-import shared.{WorkerId, Shift, Day, SharedMessages}
-import scala.scalajs.js.ThisFunction
-import scala.scalajs.js.annotation.{JSExport, JSName, ScalaJSDefined}
+import shared._
+import scala.scalajs.js.annotation.JSExport
+import scala.scalajs.js.{JSON, ThisFunction}
 import scalatags.Text.all._
+import collection.mutable.{Seq => MutableSeq, Map => MutableMap}
 import js.JSConverters._
 
 object ExampleJS extends js.JSApp {
@@ -30,72 +32,49 @@ object ExampleJS extends js.JSApp {
     def style: String = js.native
   }
 
-  type JSWorkerId = Int
-  type JSProperties = js.Array[String]
-  type JSTeam = js.Array[JSWorkerId]
-
-  @js.native
-  trait JsShift extends js.Object {
-    val order: Int = js.native
-    var team: JSTeam = js.native
-    var properties: JSProperties = js.native
-    //def toShift: Shift = Shift(order, Some(team.toList.map(WorkerId)), Some(properties.toList))
+  def shift2literal(shift: Shift): js.Object = {
+    literal(
+      order = shift.order,
+      team = shift.team.toJSArray,
+      preferences = shift.preferences.toJSDictionary,
+      properties = shift.properties.toJSArray
+    )
   }
 
-  @js.native
-  trait JsDay extends js.Object {
-    val ofTheMonth: Int = js.native
-    val shifts: js.Array[JsShift] = js.native
-    //def toDay: Day = Day(ofTheMonth, shifts.toList.map(_.toShift))
+  def day2literal(day: Day): js.Object = {
+    literal(
+      ofTheMonth = day.ofTheMonth,
+      shifts = day.shifts.map{ case shift =>
+          shift2literal(shift)
+      }.toJSArray
+    )
   }
 
-  object DayImplicits {
-    implicit class DayObjOps(val self: JsDay.type) extends AnyVal {
-      def apply(ofTheMonth: Int,
-                shifts: List[JsShift]): JsDay = {
-        val jsShifts = shifts.toJSArray
-        JsDay(ofTheMonth, jsShifts)
-      }
-    }
+  @JSExport
+  def createDay(ofTheMonth: Int, shifts: MutableSeq[Shift]): Day = {
+    Day(ofTheMonth, shifts)
   }
 
-  object JsDay {
-    def apply(ofTheMonth: Int, jsShifts: js.Array[JsShift]): JsDay = {
-      literal(ofTheMonth = ofTheMonth, shifts = jsShifts).asInstanceOf[JsDay]
-    }
+  @JSExport
+  def createShift(order: Int,
+                  team: mutable.Seq[String],
+                  preferences: mutable.Map[String, Int],
+                  properties: mutable.Seq[String]): Shift = {
+    Shift(order, team, preferences, properties)
   }
 
-  object ShiftImplicits {
-    implicit class ShiftObjOps(val self: JsShift.type) extends AnyVal {
-      def apply(order: Int,
-                maybeTeam: Option[List[WorkerId]] = Option.empty,
-                maybeProperties: Option[List[String]] = Option.empty): JsShift = {
-        val jsTeam = if (maybeTeam.isDefined) {
-          maybeTeam.get.map(_.id).toJSArray
-        } else {
-          js.Array(): JSTeam
-        }
-        val jsProperties = if (maybeProperties.isDefined) {
-          maybeProperties.get.toJSArray: JSProperties
-        } else {
-          js.Array(): JSProperties
-        }
-        JsShift(order, jsTeam, jsProperties)
-      }
-    }
+  def freezeShift(shift: Shift): ImmutableShift = {
+    ImmutableShift(shift.order, shift.team, shift.preferences.toMap, shift.properties)
   }
 
-  object JsShift {
-    def apply(order: Int,
-              jsTeam: JSTeam = js.Array(),
-              jsProperties: JSProperties = js.Array()): JsShift = {
-      literal(order = order, team = jsTeam, properties = jsProperties).asInstanceOf[JsShift]
-    }
+  def freezeDay(day: Day): ImmutableDay = {
+    ImmutableDay(day.ofTheMonth, day.shifts.map(freezeShift).toSeq)
   }
 
   @js.native
   trait Hello extends Vue {
-    var days: js.Array[JsDay] = js.native
+    var days: js.Array[js.Object] = js.native
+    var scalaDays: js.Array[Day] = js.native
     def init(nDays: Int, nShifts: Int): Unit = js.native
   }
 
@@ -167,16 +146,13 @@ object ExampleJS extends js.JSApp {
       )
     ))
 
-    import ExampleJS.DayImplicits._
-    import ExampleJS.ShiftImplicits._
-    import upickle.default._
     new Vue(
       literal(
         el = "#myApp",
         data = () => { literal(
           title = "example text",
           mode = "init",
-          days = js.Array(JsDay.apply(1, List(JsShift.apply(1, None, Some(List("dummy"))))))
+          days = MutableSeq(createDay(1, MutableSeq(createShift(1, MutableSeq(), MutableMap(), MutableSeq("dummy prop")))))
         )},
         methods = literal(
           create=((vm: Hello) => {
@@ -192,22 +168,17 @@ object ExampleJS extends js.JSApp {
             }}
           }): ThisFunction,
           init= ((vm: Hello, nDays: Int, nShifts: Int) => {
+            dom.console.info(s"init was called")
             val retval = for (d <- 1 to nDays) yield
-             JsDay.apply(d, (1 to nShifts).map(JsShift(_)).toList)
-            vm.days = retval.toJSArray
+             createDay(d, collection.mutable.Seq.concat((1 to nShifts).map{sh => createShift(1, MutableSeq(), MutableMap(), MutableSeq("dummy"))}))
+            vm.days = retval.map(day => day2literal(day)).toJSArray
+            vm.scalaDays = retval.toJSArray
           }): ThisFunction,
           save= ((vm: Hello)=>{
-            val data = vm.days.toList.map(jsDay =>
-              Day(jsDay.ofTheMonth, jsDay.shifts.toList.map(jsShift =>
-                Shift(jsShift.order,
-                  Some(jsShift.team.toList.map(WorkerId)),
-                  Some(jsShift.properties.toList)
-                )
-              ))
-            )
+            import upickle.default._
             Ajax.put(
               url = "/month/2016/05",
-              data = write(data),
+              data = upickle.json.write(upickle.default.writeJs(vm.scalaDays.map(freezeDay).toSeq)),
               headers = Map("content-type" -> "application/json")
             ).map{r => if (r.status == 200) {
               vm.$set("mode", "confirm")
@@ -224,4 +195,5 @@ object ExampleJS extends js.JSApp {
    *  This demonstrates unit testing.
    */
   def square(x: Int): Int = x*x
+
 }

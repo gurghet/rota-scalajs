@@ -25,7 +25,9 @@ lazy val exampleServer = (project in file("example-server")).settings(
     "org.webjars" % "bootstrap" % "3.3.5",
     "org.webjars" % "jquery" % "2.1.4",
     "org.webjars" % "font-awesome" % "4.4.0",
-    "io.reactivex" %% "rxscala" % "0.26.0"
+    "io.reactivex" %% "rxscala" % "0.26.0",
+    "org.json4s" %% "json4s-jackson" % "3.3.0"
+
   )
  ).enablePlugins(PlayScala).
   aggregate(clients.map(projectToRef): _*).

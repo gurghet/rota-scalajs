@@ -1,9 +1,10 @@
 package controllers
 
+import play.api.Play
 import play.api.http.MimeTypes
-import play.api.libs.json.JsValue
-import play.api.mvc._
-import shared.SharedMessages
+import play.api.libs.json.{JsString, JsValue}
+import play.api.mvc.{AnyContent, Action, Controller}
+import shared.{ImmutableDay, Shift, Day, SharedMessages}
 
 import scalatags.Text.TypedTag
 import scalatags.Text.all._
@@ -69,7 +70,6 @@ object Application extends Controller {
   def scripts(projectName: String) = selectScripts(projectName) :+ launcher(projectName)
 
   def selectScripts(projectName: String): Seq[TypedTag[String]] = {
-    import play.api.Play
     val vueVersion = "1.0.21"
     if (Play.isProd(Play.current)) {
       Seq(script(src := s"/assets/${projectName.toLowerCase}-opt.js"),
@@ -88,15 +88,16 @@ object Application extends Controller {
     Created("5").withHeaders(CONTENT_TYPE -> MimeTypes.JSON)
   }
 
-  def monthUpdate(year: Int, month: Int) = Action { implicit request =>
-    val body: AnyContent = request.body
-    val jsonBody: Option[JsValue] = body.asJson
+  case class Preference(id: String, value: Int)
 
-    jsonBody.map { json =>
+  def monthUpdate(year: Int, month: Int) = Action(parse.tolerantText) { implicit request =>
+    import org.json4s._
+    implicit val formats = DefaultFormats
 
-      Ok()
-    }.getOrElse{
-      BadRequest("Expecting application/json request body")
-    }
+    val json = org.json4s.jackson.JsonMethods.parse(request.body)
+    val immutableDays = json.extract[List[ImmutableDay]]
+
+
+    Ok(s"ok")
   }
 }

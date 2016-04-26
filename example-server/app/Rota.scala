@@ -1,6 +1,6 @@
 import play.api.libs.json.{JsArray, Json}
 import rx.lang.scala.Observable
-import shared.{Day, Shift}
+import shared.{Day, ImmutableDay}
 
 import scala.collection.immutable.IndexedSeq
 import scala.collection.mutable
@@ -10,26 +10,24 @@ import scala.language.postfixOps
 /**
   * Created by gurghet on 05.04.16.
   */
-case class DaysWithPreferences(days: Map[(Int, Int), (Set[WorkerId], Map[WorkerId, Int], Set[String])])
-
 class Rota(nDays: Int, team: Set[String]) {
   private val shiftsPerDay = 3
   private val maxGlobalTeamSize = 5
   private lazy val r = scala.util.Random
-  type MutableRota = mutable.LinkedHashMap[(Int, Int), mutable.Set[WorkerId]]
-  type Rota = Map[(Int, Int), Set[WorkerId]]
-  type ImmutableRota = collection.immutable.Map[(Int, Int), collection.immutable.Set[WorkerId]]
+  type MutableRota = mutable.LinkedHashMap[(Int, Int), mutable.Set[String]]
+  type Rota = Map[(Int, Int), Set[String]]
+  type ImmutableRota = collection.immutable.Map[(Int, Int), collection.immutable.Set[String]]
 
-  private var lastAdd: Option[((WorkerId, mutable.Set[WorkerId]))] = Option.empty
-  private var lastDel: Option[((WorkerId, mutable.Set[WorkerId]))] = Option.empty
+  private var lastAdd: Option[((String, mutable.Set[String]))] = Option.empty
+  private var lastDel: Option[((String, mutable.Set[String]))] = Option.empty
 
 
   // all the shifts have an implicit day and order
   // for example the with 3 shifts per day the 4th
   // shift is the 1st shift of the second day
-  private val rota = mutable.LinkedHashMap.empty[(Int, Int), mutable.Set[WorkerId]]
+  private val rota = mutable.LinkedHashMap.empty[(Int, Int), mutable.Set[String]]
   private var shiftProperties = List.empty[collection.immutable.Set[String]]
-  private var workerPreferences = collection.immutable.Map.empty[WorkerId, List[Int]]
+  private var workerPreferences = collection.immutable.Map.empty[String, List[Int]]
 
   def allShifts: IndexedSeq[(Int, Int)] = (1 to nDays)
     .flatMap(day => (1 to shiftsPerDay).map(shift => (day, shift)))
@@ -43,7 +41,7 @@ class Rota(nDays: Int, team: Set[String]) {
       // calculations are 1-indexed
       allShifts
         .foreach { case (day, shift) =>
-          val currentShiftTeam = mutable.HashSet.empty[WorkerId]
+          val currentShiftTeam = mutable.HashSet.empty[String]
           val availableWorkers = team.toBuffer
           for (i <- 1 to r.nextInt(math.min(maxGlobalTeamSize, team.size)) + 1) {
             val randomWorker: Int = r.nextInt(availableWorkers.size)
@@ -62,12 +60,12 @@ class Rota(nDays: Int, team: Set[String]) {
     allShifts
       .map{ case (day, shift) =>
         (day, shift) -> rota(day, shift).toSet
-      }.toMap[(Int, Int), collection.immutable.Set[WorkerId]]
+      }.toMap[(Int, Int), collection.immutable.Set[String]]
   }
 
   def randomShift = (r.nextInt(nDays) + 1, r.nextInt(shiftsPerDay) + 1)
 
-  def drawRandomWorkerFromRandomShift(): Option[WorkerId] = {
+  def drawRandomWorkerFromRandomShift(): Option[String] = {
     var shift = randomShift
     var equipe = rota(shift)
     var trial = 1; val maxTrials = 5
@@ -78,7 +76,7 @@ class Rota(nDays: Int, team: Set[String]) {
     }
     if (equipe.isEmpty) {
       lastDel = Option.empty
-      Option.empty[WorkerId]
+      Option.empty[String]
     } else {
       val teamSize = equipe.size
       val pickedWorker = equipe.iterator.drop(r.nextInt(teamSize)).next
@@ -96,7 +94,7 @@ class Rota(nDays: Int, team: Set[String]) {
     }
   }
 
-  def addWorkerToRandomShift(worker: WorkerId) {
+  def addWorkerToRandomShift(worker: String) {
     var shift = randomShift
     var equipe = rota(shift)
     var trial = 1; val maxTrials = 5
@@ -143,7 +141,7 @@ class Rota(nDays: Int, team: Set[String]) {
 
   def addRandomWorkerToRandomShift() {
     //println("adding")
-    val randomWorker: WorkerId = team.iterator.drop(r.nextInt(team.size)).next
+    val randomWorker: String = team.iterator.drop(r.nextInt(team.size)).next
     addWorkerToRandomShift(randomWorker)
   }
 
@@ -173,7 +171,7 @@ class Rota(nDays: Int, team: Set[String]) {
     neighborhoods.iterator.drop(r.nextInt(neighborhoods.size)).next
   }
 
-  def setPreferencesFor(workerId: WorkerId, preferences: Map[(Int, Int), Int]) {
+  def setPreferencesFor(workerId: String, preferences: Map[(Int, Int), Int]) {
     val preferenceList = allShifts
       .map{ case (day, shift) =>
         preferences((day, shift))
@@ -185,7 +183,7 @@ class Rota(nDays: Int, team: Set[String]) {
     shiftProperties = properties.values.toList
   }
 
-  def getPresenceListFor(workerId: WorkerId): List[Int] = {
+  def getPresenceListFor(workerId: String): List[Int] = {
     allShifts
       .map{ case (day, shift) =>
         if (rota((day, shift)) contains workerId) 1 else 0
@@ -258,22 +256,37 @@ class Rota(nDays: Int, team: Set[String]) {
 }
 
 trait RotaStore {
-  def get(id: Long): Future[Rota]
-  def create(rotaWithoutId: Rota): Future[Rota]
-  def update(rota: Rota): Future[Boolean]
+  def get(id: Long): Future[Seq[Day]]
+  def create(rotaWithoutId: Seq[Day]): Future[Long]
+  def update(rota: Seq[Day], id: Long): Future[Boolean]
   def delete(id: Long*): Future[Boolean]
 }
 
-object RotaAnormStore extends RotaStore {
-  import anorm._
-  import anorm.SqlParser._
-  import play.api.db.DB
+case class Ooo(i : Int)
 
-  override def get(id: Long): Future[DaysWithPreferences] = Future {
-    DB.withConnection { implicit c =>
-      SQL("SELECT * FROM DaysWithPreferences ORDER BY id DESC").as(long("id").? ~ str("obj") *).map {
-        case dbId ~ obj => DaysWithPreferences()
-      }
+Ooo.unapply(Ooo(4))
+
+object RotaSlickStore extends RotaStore {
+  import play.api.db.DB
+  import slick.driver.H2Driver.api._
+
+  class RotaSparseObjects(tag: Tag) extends Table[Tuple2[Int, Seq[Day]]](tag, "ROTASPARSEOBJECTS"){
+    def id  = column[Option[Long]]("ID", O.PrimaryKey, O.AutoInc)
+    def rota = column[Seq[Day]]("ROTA")
+    def * = (id, rota) <> (Tuple2[Int, Seq[Day]].tupled, Tuple2[Int, Seq[Day]].unapply)
+  }
+
+  private def db: Database = Database.forDataSource(DB.getDataSource())
+
+  val rotaSparseObjects = TableQuery[RotaSparseObjects]
+
+  override def get(id: Long): Future[RotaSparse] = {
+    db.run(rotaSparseObjects.filter(_.id === id).map(_.obj).result.head)
+  }
+
+  override def create(rotaWithoutId: RotaSparse): Future[RotaSparse] = {
+    db.run{
+
     }
   }
 
