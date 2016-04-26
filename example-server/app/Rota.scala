@@ -256,9 +256,9 @@ class Rota(nDays: Int, team: Set[String]) {
 }
 
 trait RotaStore {
-  def get(id: Long): Future[Seq[Day]]
-  def create(rotaWithoutId: Seq[Day]): Future[Long]
-  def update(rota: Seq[Day], id: Long): Future[Boolean]
+  def get(id: Long): Future[String]
+  def create(rotaWithoutId: String): Future[Long]
+  def update(rota: String, id: Long): Future[Boolean]
   def delete(id: Long*): Future[Boolean]
 }
 
@@ -270,24 +270,33 @@ object RotaSlickStore extends RotaStore {
   import play.api.db.DB
   import slick.driver.H2Driver.api._
 
-  class RotaSparseObjects(tag: Tag) extends Table[Tuple2[Int, Seq[Day]]](tag, "ROTASPARSEOBJECTS"){
+  case class StoredRota(id: Option[Long], obj: String)
+
+  class RotaSparseObjects(tag: Tag) extends Table[StoredRota](tag, "ROTASPARSEOBJECTS"){
     def id  = column[Option[Long]]("ID", O.PrimaryKey, O.AutoInc)
-    def rota = column[Seq[Day]]("ROTA")
-    def * = (id, rota) <> (Tuple2[Int, Seq[Day]].tupled, Tuple2[Int, Seq[Day]].unapply)
+    def rota = column[String]("OBJ")
+    def * = (id, rota) <> (StoredRota.tupled, StoredRota.unapply)
   }
 
   private def db: Database = Database.forDataSource(DB.getDataSource())
 
   val rotaSparseObjects = TableQuery[RotaSparseObjects]
 
-  override def get(id: Long): Future[RotaSparse] = {
-    db.run(rotaSparseObjects.filter(_.id === id).map(_.obj).result.head)
+  override def get(id: Long): Future[String] = {
+    db.run(rotaSparseObjects.filter(_.id === id).map(_.rota).result.head)
   }
 
-  override def create(rotaWithoutId: RotaSparse): Future[RotaSparse] = {
+  override def create(rotaWithoutId: String): Future[Long] = {
+    val eventualResult = db.run((rotaSparseObjects returning rotaSparseObjects.map(_.id)) += StoredRota(None, rotaWithoutId))
+    eventualResult.map(singleInsertResult => singleInsertResult.get)
+  }
+
+  override def update(rota: String, id: Long): Future[Boolean] = {
     db.run{
-
-    }
+      val q = for { t <- rotaSparseObjects if t.id === id } yield t.rota
+      q.update(rota)
+    }.map(_ == 1)
   }
 
+  override def delete(id: Long*): Future[Boolean] = ???
 }
