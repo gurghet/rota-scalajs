@@ -63,14 +63,6 @@ object ExampleJS extends js.JSApp {
     Shift(order, team, preferences, properties)
   }
 
-  def freezeShift(shift: Shift): ImmutableShift = {
-    ImmutableShift(shift.order, shift.team, shift.preferences.toMap, shift.properties)
-  }
-
-  def freezeDay(day: Day): ImmutableDay = {
-    ImmutableDay(day.ofTheMonth, day.shifts.map(freezeShift).toSeq)
-  }
-
   @js.native
   trait Hello extends Vue {
     var days: js.Array[js.Object] = js.native
@@ -176,6 +168,7 @@ object ExampleJS extends js.JSApp {
           }): ThisFunction,
           save= ((vm: Hello)=>{
             import upickle.default._
+            import RotaUtils._
             Ajax.put(
               url = "/month/2016/05",
               data = upickle.json.write(upickle.default.writeJs(vm.scalaDays.map(freezeDay).toSeq)),
