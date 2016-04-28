@@ -2,9 +2,8 @@ package controllers
 
 import play.api.Play
 import play.api.http.MimeTypes
-import play.api.libs.json.{JsString, JsValue}
 import play.api.mvc.{AnyContent, Action, Controller}
-import shared.{ImmutableDay, Shift, Day, SharedMessages}
+import shared.{Day, MutableShift, MutableDay, SharedMessages}
 
 import scalatags.Text.TypedTag
 import scalatags.Text.all._
@@ -91,11 +90,11 @@ object Application extends Controller {
   case class Preference(id: String, value: Int)
 
   def monthUpdate(year: Int, month: Int) = Action(parse.tolerantText) { implicit request =>
-    import org.json4s._
-    implicit val formats = DefaultFormats
+    import upickle.json._
+    import upickle.default._
 
-    val json = org.json4s.jackson.JsonMethods.parse(request.body)
-    val immutableDays = json.extract[List[ImmutableDay]]
+    //val json = org.json4s.jackson.JsonMethods.parse(request.body)
+    //val immutableDays = json.extract[List[ImmutableDay]]
 
 
     Ok(s"ok")

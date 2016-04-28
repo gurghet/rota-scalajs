@@ -32,7 +32,7 @@ object ExampleJS extends js.JSApp {
     def style: String = js.native
   }
 
-  def shift2literal(shift: Shift): js.Object = {
+  def shift2literal(shift: MutableShift): js.Object = {
     literal(
       order = shift.order,
       team = shift.team.toJSArray,
@@ -41,7 +41,7 @@ object ExampleJS extends js.JSApp {
     )
   }
 
-  def day2literal(day: Day): js.Object = {
+  def day2literal(day: MutableDay): js.Object = {
     literal(
       ofTheMonth = day.ofTheMonth,
       shifts = day.shifts.map{ case shift =>
@@ -51,22 +51,22 @@ object ExampleJS extends js.JSApp {
   }
 
   @JSExport
-  def createDay(ofTheMonth: Int, shifts: MutableSeq[Shift]): Day = {
-    Day(ofTheMonth, shifts)
+  def createDay(ofTheMonth: Int, shifts: MutableSeq[MutableShift]): MutableDay = {
+    MutableDay(ofTheMonth, shifts)
   }
 
   @JSExport
   def createShift(order: Int,
                   team: mutable.Seq[String],
                   preferences: mutable.Map[String, Int],
-                  properties: mutable.Seq[String]): Shift = {
-    Shift(order, team, preferences, properties)
+                  properties: mutable.Seq[String]): MutableShift = {
+    MutableShift(order, team, preferences, properties)
   }
 
   @js.native
   trait Hello extends Vue {
     var days: js.Array[js.Object] = js.native
-    var scalaDays: js.Array[Day] = js.native
+    var scalaDays: js.Array[MutableDay] = js.native
     def init(nDays: Int, nShifts: Int): Unit = js.native
   }
 
