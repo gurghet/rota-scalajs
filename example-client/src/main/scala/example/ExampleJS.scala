@@ -32,22 +32,48 @@ object ExampleJS extends js.JSApp {
     def style: String = js.native
   }
 
-  def shift2literal(shift: MutableShift): js.Object = {
+  @js.native
+  trait JsShift extends js.Object {
+    val order: Int = js.native
+    var team: js.Array[String] = js.native
+    var preferences: js.Dictionary[Int] = js.native
+    var properties: js.Array[String] = js.native
+  }
+
+  @js.native
+  trait JsDay extends js.Object {
+    val ofTheMonth: Int = js.native
+    var shifts: js.Array[JsShift] = js.native
+  }
+
+  def jsDay2MutableDay(jsDay: JsDay): MutableDay = {
+    MutableDay(jsDay.ofTheMonth, jsDay.shifts.map{ jShift =>
+      MutableShift(jShift.order, jShift.team, jShift.preferences, jShift.properties)
+    })
+  }
+
+  def jsDay2Day(jsDay: JsDay): Day = {
+    Day(jsDay.ofTheMonth, jsDay.shifts.map{ jShift =>
+      Shift(jShift.order, jShift.team, jShift.preferences.toMap, jShift.properties)
+    })
+  }
+
+  def shift2literal(shift: MutableShift): JsShift = {
     literal(
       order = shift.order,
       team = shift.team.toJSArray,
       preferences = shift.preferences.toJSDictionary,
       properties = shift.properties.toJSArray
-    )
+    ).asInstanceOf[JsShift]
   }
 
-  def day2literal(day: MutableDay): js.Object = {
+  def day2literal(day: MutableDay): JsDay = {
     literal(
       ofTheMonth = day.ofTheMonth,
       shifts = day.shifts.map{ case shift =>
           shift2literal(shift)
       }.toJSArray
-    )
+    ).asInstanceOf[JsDay]
   }
 
   @JSExport
@@ -65,8 +91,7 @@ object ExampleJS extends js.JSApp {
 
   @js.native
   trait Hello extends Vue {
-    var days: js.Array[js.Object] = js.native
-    var scalaDays: js.Array[MutableDay] = js.native
+    var days: js.Array[JsDay] = js.native
     def init(nDays: Int, nShifts: Int): Unit = js.native
   }
 
@@ -164,14 +189,13 @@ object ExampleJS extends js.JSApp {
             val retval = for (d <- 1 to nDays) yield
              createDay(d, collection.mutable.Seq.concat((1 to nShifts).map{sh => createShift(1, MutableSeq(), MutableMap(), MutableSeq("dummy"))}))
             vm.days = retval.map(day => day2literal(day)).toJSArray
-            vm.scalaDays = retval.toJSArray
           }): ThisFunction,
           save= ((vm: Hello)=>{
             import upickle.default._
             import RotaUtils._
             Ajax.put(
-              url = "/month/2016/05",
-              data = upickle.json.write(upickle.default.writeJs(vm.scalaDays.map(freezeDay).toSeq)),
+              url = "/month/2016/06",
+              data = upickle.json.write(upickle.default.writeJs(vm.days.map(jsDay2Day).toSeq)),
               headers = Map("content-type" -> "application/json")
             ).map{r => if (r.status == 200) {
               vm.$set("mode", "confirm")

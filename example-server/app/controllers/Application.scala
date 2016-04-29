@@ -2,8 +2,8 @@ package controllers
 
 import play.api.Play
 import play.api.http.MimeTypes
-import play.api.mvc.{AnyContent, Action, Controller}
-import shared.{Day, MutableShift, MutableDay, SharedMessages}
+import play.api.mvc.{Action, AnyContent, Controller}
+import shared._
 
 import scalatags.Text.TypedTag
 import scalatags.Text.all._
@@ -84,7 +84,7 @@ object Application extends Controller {
   }
 
   def monthCreate() = Action { implicit request =>
-    Created("5").withHeaders(CONTENT_TYPE -> MimeTypes.JSON)
+    Created("6").withHeaders(CONTENT_TYPE -> MimeTypes.JSON)
   }
 
   case class Preference(id: String, value: Int)
@@ -93,10 +93,12 @@ object Application extends Controller {
     import upickle.json._
     import upickle.default._
 
+    val days = upickle.default.read[Seq[Day]](request.body)
+
     //val json = org.json4s.jackson.JsonMethods.parse(request.body)
     //val immutableDays = json.extract[List[ImmutableDay]]
 
 
-    Ok(s"ok")
+    Ok(s"ok received $days")
   }
 }
